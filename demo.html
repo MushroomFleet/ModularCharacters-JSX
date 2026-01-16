@@ -1,0 +1,2353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PuppetJSX Demo - Modular Sprite Animation System</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+    }
+    #root {
+      width: 100%;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } = React;
+
+    // ============================================================
+    // ICON COMPONENTS (replacing lucide-react)
+    // ============================================================
+    const Icon = ({ d, size = 20 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d={d} />
+      </svg>
+    );
+
+    const PlayIcon = ({ size }) => <Icon size={size} d="M5 3l14 9-14 9V3z" />;
+    const PauseIcon = ({ size }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" />
+      </svg>
+    );
+    const SkipBackIcon = ({ size }) => <Icon size={size} d="M19 20L9 12l10-8v16zM5 19V5" />;
+    const SkipForwardIcon = ({ size }) => <Icon size={size} d="M5 4l10 8-10 8V4zM19 5v14" />;
+    const SaveIcon = ({ size }) => <Icon size={size} d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2zM17 21v-8H7v8M7 3v5h8" />;
+    const UploadIcon = ({ size }) => <Icon size={size} d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />;
+    const DownloadIcon = ({ size }) => <Icon size={size} d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />;
+    const LayersIcon = ({ size }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" />
+      </svg>
+    );
+    const GridIcon = ({ size }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+      </svg>
+    );
+    const EyeIcon = ({ size }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+      </svg>
+    );
+    const EyeOffIcon = ({ size }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" />
+        <line x1="1" y1="1" x2="23" y2="23" />
+      </svg>
+    );
+    const PlusIcon = ({ size }) => <Icon size={size} d="M12 5v14M5 12h14" />;
+    const TrashIcon = ({ size }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+      </svg>
+    );
+    const CopyIcon = ({ size }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+      </svg>
+    );
+    const ClipboardIcon = ({ size }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+      </svg>
+    );
+    const FlipIcon = ({ size }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
+      </svg>
+    );
+    const RotateIcon = ({ size }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M1 4v6h6M23 20v-6h-6" /><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15" />
+      </svg>
+    );
+    const ChevronRightIcon = ({ size }) => <Icon size={size} d="M9 18l6-6-6-6" />;
+    const ChevronDownIcon = ({ size }) => <Icon size={size} d="M6 9l6 6 6-6" />;
+    const ShuffleIcon = ({ size }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polyline points="16 3 21 3 21 8" /><line x1="4" y1="20" x2="21" y2="3" /><polyline points="21 16 21 21 16 21" /><line x1="15" y1="15" x2="21" y2="21" /><line x1="4" y1="4" x2="9" y2="9" />
+      </svg>
+    );
+    const SettingsIcon = ({ size }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+      </svg>
+    );
+    const XIcon = ({ size }) => <Icon size={size} d="M18 6L6 18M6 6l12 12" />;
+
+    // ============================================================
+    // MATH UTILITIES
+    // ============================================================
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    const lerpAngle = (a, b, t) => {
+      let delta = b - a;
+      while (delta > 180) delta -= 360;
+      while (delta < -180) delta += 360;
+      return a + delta * t;
+    };
+
+    const normalizeAngle = (angle) => {
+      while (angle > 180) angle -= 360;
+      while (angle < -180) angle += 360;
+      return angle;
+    };
+
+    const degToRad = (deg) => deg * Math.PI / 180;
+
+    // ============================================================
+    // SKELETON ENGINE
+    // ============================================================
+    const calculateWorldTransform = (bone, parentWorldTransform = null) => {
+      const local = bone.localTransform;
+      
+      if (!parentWorldTransform) {
+        return {
+          position: { ...local.position },
+          rotation: local.rotation,
+          scale: { ...local.scale }
+        };
+      }
+      
+      const rad = degToRad(parentWorldTransform.rotation);
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const rotatedX = local.position.x * cos - local.position.y * sin;
+      const rotatedY = local.position.x * sin + local.position.y * cos;
+      
+      const scaledX = rotatedX * parentWorldTransform.scale.x;
+      const scaledY = rotatedY * parentWorldTransform.scale.y;
+      
+      return {
+        position: {
+          x: parentWorldTransform.position.x + scaledX,
+          y: parentWorldTransform.position.y + scaledY
+        },
+        rotation: normalizeAngle(parentWorldTransform.rotation + local.rotation),
+        scale: {
+          x: parentWorldTransform.scale.x * local.scale.x,
+          y: parentWorldTransform.scale.y * local.scale.y
+        }
+      };
+    };
+
+    const calculateAllWorldTransforms = (skeleton, frameTransforms = {}) => {
+      const worldTransforms = {};
+      
+      const traverse = (boneId, parentWorldTransform) => {
+        const bone = skeleton.bones[boneId];
+        if (!bone) return;
+        
+        const localTransform = frameTransforms[boneId] || bone.localTransform;
+        const tempBone = { ...bone, localTransform };
+        const worldTransform = calculateWorldTransform(tempBone, parentWorldTransform);
+        
+        worldTransforms[boneId] = worldTransform;
+        
+        for (const childId of bone.children) {
+          traverse(childId, worldTransform);
+        }
+      };
+      
+      const rootBone = Object.values(skeleton.bones).find(b => b.parent === null);
+      if (rootBone) traverse(rootBone.id, null);
+      
+      return worldTransforms;
+    };
+
+    // ============================================================
+    // ANIMATION ENGINE
+    // ============================================================
+    const getCurrentFrameData = (animation, currentTime) => {
+      if (!animation || !animation.frames || animation.frames.length === 0) {
+        return { currentFrameIndex: 0, nextFrameIndex: 0, progress: 0, currentFrame: null, nextFrame: null };
+      }
+      
+      let accumulatedTime = 0;
+      
+      for (let i = 0; i < animation.frames.length; i++) {
+        const frame = animation.frames[i];
+        const frameEndTime = accumulatedTime + frame.duration;
+        
+        if (currentTime < frameEndTime) {
+          const nextIndex = (i + 1) % animation.frames.length;
+          const frameProgress = (currentTime - accumulatedTime) / frame.duration;
+          
+          return {
+            currentFrameIndex: i,
+            nextFrameIndex: nextIndex,
+            progress: frameProgress,
+            currentFrame: frame,
+            nextFrame: animation.frames[nextIndex]
+          };
+        }
+        
+        accumulatedTime = frameEndTime;
+      }
+      
+      return {
+        currentFrameIndex: 0,
+        nextFrameIndex: 1,
+        progress: 0,
+        currentFrame: animation.frames[0],
+        nextFrame: animation.frames[1] || animation.frames[0]
+      };
+    };
+
+    const interpolateFrames = (frame1, frame2, t, skeleton) => {
+      const interpolated = {};
+      
+      for (const boneId in skeleton.bones) {
+        const t1 = frame1?.bones?.[boneId] || skeleton.bones[boneId].localTransform;
+        const t2 = frame2?.bones?.[boneId] || skeleton.bones[boneId].localTransform;
+        
+        interpolated[boneId] = {
+          position: {
+            x: lerp(t1.position.x, t2.position.x, t),
+            y: lerp(t1.position.y, t2.position.y, t)
+          },
+          rotation: lerpAngle(t1.rotation, t2.rotation, t),
+          scale: {
+            x: lerp(t1.scale.x, t2.scale.x, t),
+            y: lerp(t1.scale.y, t2.scale.y, t)
+          }
+        };
+      }
+      
+      return interpolated;
+    };
+
+    const getTotalDuration = (animation) => {
+      if (!animation?.frames) return 400;
+      return animation.frames.reduce((sum, f) => sum + f.duration, 0);
+    };
+
+    // ============================================================
+    // DEFAULT DATA
+    // ============================================================
+    const defaultSkeleton = {
+      id: 'humanoid_skeleton',
+      name: 'Humanoid',
+      bones: {
+        root: {
+          id: 'root',
+          parent: null,
+          localTransform: { position: { x: 0, y: 0 }, rotation: 0, scale: { x: 1, y: 1 } },
+          zIndex: 0,
+          children: ['torso']
+        },
+        torso: {
+          id: 'torso',
+          parent: 'root',
+          localTransform: { position: { x: 0, y: -20 }, rotation: 0, scale: { x: 1, y: 1 } },
+          zIndex: 5,
+          children: ['head', 'arm_left', 'arm_right', 'leg_left', 'leg_right']
+        },
+        head: {
+          id: 'head',
+          parent: 'torso',
+          localTransform: { position: { x: 0, y: -30 }, rotation: 0, scale: { x: 1, y: 1 } },
+          zIndex: 10,
+          children: []
+        },
+        arm_left: {
+          id: 'arm_left',
+          parent: 'torso',
+          localTransform: { position: { x: -15, y: -10 }, rotation: 0, scale: { x: 1, y: 1 } },
+          zIndex: 3,
+          children: ['hand_left']
+        },
+        hand_left: {
+          id: 'hand_left',
+          parent: 'arm_left',
+          localTransform: { position: { x: 0, y: 20 }, rotation: 0, scale: { x: 1, y: 1 } },
+          zIndex: 3,
+          children: []
+        },
+        arm_right: {
+          id: 'arm_right',
+          parent: 'torso',
+          localTransform: { position: { x: 15, y: -10 }, rotation: 0, scale: { x: 1, y: 1 } },
+          zIndex: 7,
+          children: ['hand_right']
+        },
+        hand_right: {
+          id: 'hand_right',
+          parent: 'arm_right',
+          localTransform: { position: { x: 0, y: 20 }, rotation: 0, scale: { x: 1, y: 1 } },
+          zIndex: 7,
+          children: []
+        },
+        leg_left: {
+          id: 'leg_left',
+          parent: 'torso',
+          localTransform: { position: { x: -8, y: 15 }, rotation: 0, scale: { x: 1, y: 1 } },
+          zIndex: 4,
+          children: ['foot_left']
+        },
+        foot_left: {
+          id: 'foot_left',
+          parent: 'leg_left',
+          localTransform: { position: { x: 0, y: 20 }, rotation: 0, scale: { x: 1, y: 1 } },
+          zIndex: 4,
+          children: []
+        },
+        leg_right: {
+          id: 'leg_right',
+          parent: 'torso',
+          localTransform: { position: { x: 8, y: 15 }, rotation: 0, scale: { x: 1, y: 1 } },
+          zIndex: 6,
+          children: ['foot_right']
+        },
+        foot_right: {
+          id: 'foot_right',
+          parent: 'leg_right',
+          localTransform: { position: { x: 0, y: 20 }, rotation: 0, scale: { x: 1, y: 1 } },
+          zIndex: 6,
+          children: []
+        }
+      }
+    };
+
+    const defaultParts = [
+      { id: 'head_basic', name: 'Basic Head', category: 'head', width: 24, height: 24, color: '#FFD4B8', offset: { x: 0, y: 0 }, zIndexModifier: 0 },
+      { id: 'head_knight', name: 'Knight Helm', category: 'head', width: 26, height: 26, color: '#6B7280', offset: { x: 0, y: 0 }, zIndexModifier: 0 },
+      { id: 'head_mage', name: 'Mage Hood', category: 'head', width: 28, height: 24, color: '#4C1D95', offset: { x: 0, y: 0 }, zIndexModifier: 0 },
+      { id: 'torso_basic', name: 'Basic Torso', category: 'torso', width: 28, height: 32, color: '#8B5CF6', offset: { x: 0, y: 0 }, zIndexModifier: 0 },
+      { id: 'torso_armor', name: 'Plate Armor', category: 'torso', width: 30, height: 34, color: '#6B7280', offset: { x: 0, y: 0 }, zIndexModifier: 0 },
+      { id: 'torso_robe', name: 'Mage Robe', category: 'torso', width: 32, height: 38, color: '#4C1D95', offset: { x: 0, y: 0 }, zIndexModifier: 0 },
+      { id: 'arm_basic', name: 'Basic Arm', category: 'arm', width: 10, height: 20, color: '#FFD4B8', offset: { x: 0, y: 0 }, zIndexModifier: 0 },
+      { id: 'arm_armor', name: 'Armored Arm', category: 'arm', width: 12, height: 22, color: '#6B7280', offset: { x: 0, y: 0 }, zIndexModifier: 0 },
+      { id: 'hand_basic', name: 'Basic Hand', category: 'hand', width: 8, height: 10, color: '#FFD4B8', offset: { x: 0, y: 0 }, zIndexModifier: 0 },
+      { id: 'hand_glove', name: 'Gloved Hand', category: 'hand', width: 10, height: 12, color: '#4B5563', offset: { x: 0, y: 0 }, zIndexModifier: 0 },
+      { id: 'weapon_sword', name: 'Iron Sword', category: 'weapon', width: 8, height: 36, color: '#9CA3AF', offset: { x: 0, y: -8 }, zIndexModifier: 2 },
+      { id: 'weapon_staff', name: 'Magic Staff', category: 'weapon', width: 6, height: 42, color: '#7C3AED', offset: { x: 0, y: -12 }, zIndexModifier: 2 },
+      { id: 'leg_basic', name: 'Basic Leg', category: 'leg', width: 12, height: 22, color: '#374151', offset: { x: 0, y: 0 }, zIndexModifier: 0 },
+      { id: 'leg_armor', name: 'Armored Leg', category: 'leg', width: 14, height: 24, color: '#6B7280', offset: { x: 0, y: 0 }, zIndexModifier: 0 },
+      { id: 'foot_basic', name: 'Basic Foot', category: 'foot', width: 14, height: 8, color: '#4B5563', offset: { x: 0, y: 0 }, zIndexModifier: 0 },
+      { id: 'foot_boot', name: 'Leather Boot', category: 'foot', width: 16, height: 10, color: '#78350F', offset: { x: 0, y: 0 }, zIndexModifier: 0 },
+      { id: 'accessory_shield', name: 'Shield', category: 'accessory', width: 18, height: 24, color: '#B45309', offset: { x: -6, y: 0 }, zIndexModifier: -1 }
+    ];
+
+    const createDefaultAnimation = (name) => ({
+      id: `anim_${Date.now()}`,
+      name,
+      skeletonId: 'humanoid_skeleton',
+      loop: true,
+      frames: [
+        { index: 0, duration: 100, bones: {} },
+        { index: 1, duration: 100, bones: {} },
+        { index: 2, duration: 100, bones: {} },
+        { index: 3, duration: 100, bones: {} }
+      ]
+    });
+
+    const defaultAnimations = [
+      {
+        id: 'anim_idle',
+        name: 'Idle',
+        skeletonId: 'humanoid_skeleton',
+        loop: true,
+        frames: [
+          { index: 0, duration: 150, bones: { torso: { position: { x: 0, y: -20 }, rotation: 0, scale: { x: 1, y: 1 } } } },
+          { index: 1, duration: 150, bones: { torso: { position: { x: 0, y: -21 }, rotation: 0, scale: { x: 1, y: 1 } } } },
+          { index: 2, duration: 150, bones: { torso: { position: { x: 0, y: -20 }, rotation: 0, scale: { x: 1, y: 1 } } } },
+          { index: 3, duration: 150, bones: { torso: { position: { x: 0, y: -19 }, rotation: 0, scale: { x: 1, y: 1 } } } }
+        ]
+      },
+      {
+        id: 'anim_walk',
+        name: 'Walk Cycle',
+        skeletonId: 'humanoid_skeleton',
+        loop: true,
+        frames: [
+          { index: 0, duration: 100, bones: { 
+            torso: { position: { x: 0, y: -20 }, rotation: 0, scale: { x: 1, y: 1 } },
+            arm_left: { position: { x: -15, y: -10 }, rotation: -20, scale: { x: 1, y: 1 } },
+            arm_right: { position: { x: 15, y: -10 }, rotation: 20, scale: { x: 1, y: 1 } },
+            leg_left: { position: { x: -8, y: 15 }, rotation: -25, scale: { x: 1, y: 1 } },
+            leg_right: { position: { x: 8, y: 15 }, rotation: 25, scale: { x: 1, y: 1 } }
+          }},
+          { index: 1, duration: 100, bones: { 
+            torso: { position: { x: 0, y: -22 }, rotation: 0, scale: { x: 1, y: 1 } },
+            arm_left: { position: { x: -15, y: -10 }, rotation: 0, scale: { x: 1, y: 1 } },
+            arm_right: { position: { x: 15, y: -10 }, rotation: 0, scale: { x: 1, y: 1 } },
+            leg_left: { position: { x: -8, y: 15 }, rotation: 0, scale: { x: 1, y: 1 } },
+            leg_right: { position: { x: 8, y: 15 }, rotation: 0, scale: { x: 1, y: 1 } }
+          }},
+          { index: 2, duration: 100, bones: { 
+            torso: { position: { x: 0, y: -20 }, rotation: 0, scale: { x: 1, y: 1 } },
+            arm_left: { position: { x: -15, y: -10 }, rotation: 20, scale: { x: 1, y: 1 } },
+            arm_right: { position: { x: 15, y: -10 }, rotation: -20, scale: { x: 1, y: 1 } },
+            leg_left: { position: { x: -8, y: 15 }, rotation: 25, scale: { x: 1, y: 1 } },
+            leg_right: { position: { x: 8, y: 15 }, rotation: -25, scale: { x: 1, y: 1 } }
+          }},
+          { index: 3, duration: 100, bones: { 
+            torso: { position: { x: 0, y: -22 }, rotation: 0, scale: { x: 1, y: 1 } },
+            arm_left: { position: { x: -15, y: -10 }, rotation: 0, scale: { x: 1, y: 1 } },
+            arm_right: { position: { x: 15, y: -10 }, rotation: 0, scale: { x: 1, y: 1 } },
+            leg_left: { position: { x: -8, y: 15 }, rotation: 0, scale: { x: 1, y: 1 } },
+            leg_right: { position: { x: 8, y: 15 }, rotation: 0, scale: { x: 1, y: 1 } }
+          }}
+        ]
+      },
+      {
+        id: 'anim_attack',
+        name: 'Attack',
+        skeletonId: 'humanoid_skeleton',
+        loop: true,
+        frames: [
+          { index: 0, duration: 80, bones: { 
+            torso: { position: { x: 0, y: -20 }, rotation: -5, scale: { x: 1, y: 1 } },
+            arm_right: { position: { x: 15, y: -10 }, rotation: -60, scale: { x: 1, y: 1 } },
+            hand_right: { position: { x: 0, y: 20 }, rotation: -30, scale: { x: 1, y: 1 } }
+          }},
+          { index: 1, duration: 60, bones: { 
+            torso: { position: { x: 2, y: -20 }, rotation: 10, scale: { x: 1, y: 1 } },
+            arm_right: { position: { x: 15, y: -10 }, rotation: 45, scale: { x: 1, y: 1 } },
+            hand_right: { position: { x: 0, y: 20 }, rotation: 20, scale: { x: 1, y: 1 } }
+          }},
+          { index: 2, duration: 100, bones: { 
+            torso: { position: { x: 0, y: -20 }, rotation: 5, scale: { x: 1, y: 1 } },
+            arm_right: { position: { x: 15, y: -10 }, rotation: 30, scale: { x: 1, y: 1 } },
+            hand_right: { position: { x: 0, y: 20 }, rotation: 10, scale: { x: 1, y: 1 } }
+          }},
+          { index: 3, duration: 120, bones: { 
+            torso: { position: { x: 0, y: -20 }, rotation: 0, scale: { x: 1, y: 1 } },
+            arm_right: { position: { x: 15, y: -10 }, rotation: 0, scale: { x: 1, y: 1 } },
+            hand_right: { position: { x: 0, y: 20 }, rotation: 0, scale: { x: 1, y: 1 } }
+          }}
+        ]
+      }
+    ];
+
+    const defaultCharacter = {
+      id: 'char_hero',
+      name: 'Hero',
+      skeletonId: 'humanoid_skeleton',
+      parts: {
+        head: 'head_basic',
+        torso: 'torso_basic',
+        arm_left: 'arm_basic',
+        arm_right: 'arm_basic',
+        hand_left: 'hand_basic',
+        hand_right: 'weapon_sword',
+        leg_left: 'leg_basic',
+        leg_right: 'leg_basic',
+        foot_left: 'foot_basic',
+        foot_right: 'foot_basic'
+      }
+    };
+
+    // ============================================================
+    // CONTEXT
+    // ============================================================
+    const ProjectContext = createContext(null);
+
+    const useProject = () => {
+      const ctx = useContext(ProjectContext);
+      if (!ctx) throw new Error('useProject must be used within ProjectProvider');
+      return ctx;
+    };
+
+    // ============================================================
+    // MAIN APPLICATION
+    // ============================================================
+    function PuppetJSX() {
+      const [skeleton] = useState(defaultSkeleton);
+      const [partsLibrary] = useState(defaultParts);
+      const [characters, setCharacters] = useState([defaultCharacter]);
+      const [currentCharacter, setCurrentCharacter] = useState(defaultCharacter);
+      const [animations, setAnimations] = useState(defaultAnimations);
+      const [currentAnimation, setCurrentAnimation] = useState(defaultAnimations[0]);
+      
+      const [mode, setMode] = useState('builder');
+      const [selectedBoneId, setSelectedBoneId] = useState(null);
+      const [currentFrame, setCurrentFrame] = useState(0);
+      const [isPlaying, setIsPlaying] = useState(false);
+      const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+      const [currentTime, setCurrentTime] = useState(0);
+      
+      const [zoom, setZoom] = useState(2.5);
+      const [pan, setPan] = useState({ x: 0, y: 0 });
+      const [showGrid, setShowGrid] = useState(true);
+      const [showBones, setShowBones] = useState(true);
+      
+      const [showExportDialog, setShowExportDialog] = useState(false);
+      const [showImportDialog, setShowImportDialog] = useState(false);
+      
+      const animationRef = useRef(null);
+      const lastTimeRef = useRef(0);
+      
+      useEffect(() => {
+        if (!isPlaying) {
+          if (animationRef.current) cancelAnimationFrame(animationRef.current);
+          return;
+        }
+        
+        const animate = (timestamp) => {
+          const deltaTime = timestamp - lastTimeRef.current;
+          lastTimeRef.current = timestamp;
+          
+          setCurrentTime(prev => {
+            const totalDuration = getTotalDuration(currentAnimation);
+            let newTime = prev + deltaTime * playbackSpeed;
+            
+            if (newTime >= totalDuration) {
+              if (currentAnimation?.loop) {
+                newTime = newTime % totalDuration;
+              } else {
+                setIsPlaying(false);
+                return totalDuration;
+              }
+            }
+            
+            return newTime;
+          });
+          
+          animationRef.current = requestAnimationFrame(animate);
+        };
+        
+        lastTimeRef.current = performance.now();
+        animationRef.current = requestAnimationFrame(animate);
+        
+        return () => {
+          if (animationRef.current) cancelAnimationFrame(animationRef.current);
+        };
+      }, [isPlaying, playbackSpeed, currentAnimation]);
+      
+      const assignPartToBone = useCallback((boneId, partId) => {
+        setCurrentCharacter(prev => ({
+          ...prev,
+          parts: { ...prev.parts, [boneId]: partId }
+        }));
+      }, []);
+      
+      const removePartFromBone = useCallback((boneId) => {
+        setCurrentCharacter(prev => {
+          const newParts = { ...prev.parts };
+          delete newParts[boneId];
+          return { ...prev, parts: newParts };
+        });
+      }, []);
+      
+      const updateBoneTransform = useCallback((boneId, transform) => {
+        setCurrentAnimation(prev => {
+          if (!prev) return prev;
+          const newFrames = [...prev.frames];
+          newFrames[currentFrame] = {
+            ...newFrames[currentFrame],
+            bones: {
+              ...newFrames[currentFrame].bones,
+              [boneId]: transform
+            }
+          };
+          return { ...prev, frames: newFrames };
+        });
+      }, [currentFrame]);
+      
+      const updateFrameDuration = useCallback((frameIndex, duration) => {
+        setCurrentAnimation(prev => {
+          if (!prev) return prev;
+          const newFrames = [...prev.frames];
+          newFrames[frameIndex] = { ...newFrames[frameIndex], duration };
+          return { ...prev, frames: newFrames };
+        });
+      }, []);
+      
+      const goToFrame = useCallback((frameIndex) => {
+        setCurrentFrame(frameIndex);
+        setIsPlaying(false);
+        
+        if (currentAnimation) {
+          let time = 0;
+          for (let i = 0; i < frameIndex; i++) {
+            time += currentAnimation.frames[i]?.duration || 100;
+          }
+          setCurrentTime(time);
+        }
+      }, [currentAnimation]);
+      
+      const createNewAnimation = useCallback((name) => {
+        const newAnim = createDefaultAnimation(name);
+        setAnimations(prev => [...prev, newAnim]);
+        setCurrentAnimation(newAnim);
+        setCurrentFrame(0);
+        setCurrentTime(0);
+      }, []);
+      
+      const deleteAnimation = useCallback((animId) => {
+        setAnimations(prev => prev.filter(a => a.id !== animId));
+        if (currentAnimation?.id === animId) {
+          setCurrentAnimation(animations[0] || null);
+        }
+      }, [currentAnimation, animations]);
+      
+      const copyFrame = useCallback(() => {
+        if (!currentAnimation) return null;
+        return JSON.parse(JSON.stringify(currentAnimation.frames[currentFrame]?.bones || {}));
+      }, [currentAnimation, currentFrame]);
+      
+      const pasteFrame = useCallback((copiedData) => {
+        if (!copiedData) return;
+        setCurrentAnimation(prev => {
+          if (!prev) return prev;
+          const newFrames = [...prev.frames];
+          newFrames[currentFrame] = {
+            ...newFrames[currentFrame],
+            bones: { ...copiedData }
+          };
+          return { ...prev, frames: newFrames };
+        });
+      }, [currentFrame]);
+      
+      const mirrorFrame = useCallback(() => {
+        setCurrentAnimation(prev => {
+          if (!prev) return prev;
+          const newFrames = [...prev.frames];
+          const currentBones = newFrames[currentFrame].bones || {};
+          const mirrored = {};
+          
+          const mirrorPairs = {
+            arm_left: 'arm_right',
+            arm_right: 'arm_left',
+            hand_left: 'hand_right',
+            hand_right: 'hand_left',
+            leg_left: 'leg_right',
+            leg_right: 'leg_left',
+            foot_left: 'foot_right',
+            foot_right: 'foot_left'
+          };
+          
+          for (const [boneId, transform] of Object.entries(currentBones)) {
+            const targetBone = mirrorPairs[boneId] || boneId;
+            mirrored[targetBone] = {
+              ...transform,
+              position: { x: -transform.position.x, y: transform.position.y },
+              rotation: -transform.rotation
+            };
+          }
+          
+          newFrames[currentFrame] = { ...newFrames[currentFrame], bones: mirrored };
+          return { ...prev, frames: newFrames };
+        });
+      }, [currentFrame]);
+      
+      const resetBone = useCallback((boneId) => {
+        const defaultTransform = skeleton.bones[boneId]?.localTransform;
+        if (defaultTransform) {
+          updateBoneTransform(boneId, { ...defaultTransform });
+        }
+      }, [skeleton, updateBoneTransform]);
+      
+      const resetAllBones = useCallback(() => {
+        setCurrentAnimation(prev => {
+          if (!prev) return prev;
+          const newFrames = [...prev.frames];
+          newFrames[currentFrame] = { ...newFrames[currentFrame], bones: {} };
+          return { ...prev, frames: newFrames };
+        });
+      }, [currentFrame]);
+      
+      const generateRandomCharacter = useCallback(() => {
+        const randomParts = {};
+        const boneCategories = {
+          head: 'head',
+          torso: 'torso',
+          arm_left: 'arm',
+          arm_right: 'arm',
+          hand_left: 'hand',
+          hand_right: 'hand',
+          leg_left: 'leg',
+          leg_right: 'leg',
+          foot_left: 'foot',
+          foot_right: 'foot'
+        };
+        
+        for (const [boneId, category] of Object.entries(boneCategories)) {
+          const matchingParts = partsLibrary.filter(p => p.category === category);
+          if (matchingParts.length > 0 && Math.random() > 0.2) {
+            const randomPart = matchingParts[Math.floor(Math.random() * matchingParts.length)];
+            randomParts[boneId] = randomPart.id;
+          }
+        }
+        
+        if (Math.random() > 0.5) {
+          const weapons = partsLibrary.filter(p => p.category === 'weapon');
+          if (weapons.length > 0) {
+            randomParts.hand_right = weapons[Math.floor(Math.random() * weapons.length)].id;
+          }
+        }
+        
+        const newChar = {
+          id: `char_gen_${Date.now()}`,
+          name: `Generated_${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+          skeletonId: 'humanoid_skeleton',
+          parts: randomParts
+        };
+        
+        setCurrentCharacter(newChar);
+        setCharacters(prev => [...prev, newChar]);
+      }, [partsLibrary]);
+      
+      const exportCharacter = useCallback(() => {
+        return JSON.stringify({
+          version: '1.0',
+          type: 'character',
+          data: currentCharacter
+        }, null, 2);
+      }, [currentCharacter]);
+      
+      const exportAnimation = useCallback(() => {
+        return JSON.stringify({
+          version: '1.0',
+          type: 'animation',
+          data: currentAnimation
+        }, null, 2);
+      }, [currentAnimation]);
+      
+      const importData = useCallback((jsonStr) => {
+        try {
+          const data = JSON.parse(jsonStr);
+          if (data.type === 'character' && data.data) {
+            setCurrentCharacter(data.data);
+            setCharacters(prev => [...prev.filter(c => c.id !== data.data.id), data.data]);
+            return { success: true, message: 'Character imported successfully' };
+          } else if (data.type === 'animation' && data.data) {
+            setAnimations(prev => [...prev.filter(a => a.id !== data.data.id), data.data]);
+            setCurrentAnimation(data.data);
+            return { success: true, message: 'Animation imported successfully' };
+          }
+          return { success: false, message: 'Unknown data type' };
+        } catch (e) {
+          return { success: false, message: 'Invalid JSON: ' + e.message };
+        }
+      }, []);
+      
+      const contextValue = {
+        skeleton, partsLibrary, characters, currentCharacter, setCurrentCharacter,
+        animations, setAnimations, currentAnimation, setCurrentAnimation,
+        mode, setMode, selectedBoneId, setSelectedBoneId,
+        currentFrame, setCurrentFrame, isPlaying, setIsPlaying,
+        playbackSpeed, setPlaybackSpeed, currentTime, setCurrentTime,
+        zoom, setZoom, pan, setPan, showGrid, setShowGrid, showBones, setShowBones,
+        showExportDialog, setShowExportDialog, showImportDialog, setShowImportDialog,
+        assignPartToBone, removePartFromBone, updateBoneTransform, updateFrameDuration,
+        goToFrame, createNewAnimation, deleteAnimation, copyFrame, pasteFrame,
+        mirrorFrame, resetBone, resetAllBones, generateRandomCharacter,
+        exportCharacter, exportAnimation, importData
+      };
+      
+      return (
+        <ProjectContext.Provider value={contextValue}>
+          <div style={styles.app}>
+            <Toolbar />
+            <div style={styles.mainContent}>
+              {mode === 'builder' ? <CharacterBuilder /> : <AnimationEditor />}
+            </div>
+            {showExportDialog && <ExportDialog onClose={() => setShowExportDialog(false)} />}
+            {showImportDialog && <ImportDialog onClose={() => setShowImportDialog(false)} />}
+          </div>
+        </ProjectContext.Provider>
+      );
+    }
+
+    // ============================================================
+    // TOOLBAR
+    // ============================================================
+    function Toolbar() {
+      const { mode, setMode, setShowExportDialog, setShowImportDialog } = useProject();
+      
+      return (
+        <div style={styles.toolbar}>
+          <div style={styles.toolbarLeft}>
+            <span style={styles.logo}>🎭 PuppetJSX</span>
+            <div style={styles.modeToggle}>
+              <button 
+                style={{ ...styles.modeButton, ...(mode === 'builder' ? styles.modeButtonActive : {}) }}
+                onClick={() => setMode('builder')}
+              >
+                Character Builder
+              </button>
+              <button 
+                style={{ ...styles.modeButton, ...(mode === 'animator' ? styles.modeButtonActive : {}) }}
+                onClick={() => setMode('animator')}
+              >
+                Animation Editor
+              </button>
+            </div>
+          </div>
+          <div style={styles.toolbarRight}>
+            <button style={styles.toolbarButton} onClick={() => setShowImportDialog(true)} title="Import">
+              <UploadIcon size={18} />
+            </button>
+            <button style={styles.toolbarButton} onClick={() => setShowExportDialog(true)} title="Export">
+              <DownloadIcon size={18} />
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================================
+    // CHARACTER BUILDER
+    // ============================================================
+    function CharacterBuilder() {
+      return (
+        <div style={styles.builderLayout}>
+          <PartsLibrary />
+          <CanvasViewport />
+          <CharacterProperties />
+        </div>
+      );
+    }
+
+    function PartsLibrary() {
+      const { partsLibrary, selectedBoneId, assignPartToBone } = useProject();
+      const [category, setCategory] = useState('all');
+      const [search, setSearch] = useState('');
+      
+      const categories = ['all', 'head', 'torso', 'arm', 'hand', 'leg', 'foot', 'weapon', 'accessory'];
+      
+      const filteredParts = partsLibrary.filter(p => {
+        const matchesCategory = category === 'all' || p.category === category;
+        const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
+        return matchesCategory && matchesSearch;
+      });
+      
+      return (
+        <div style={styles.leftPanel}>
+          <div style={styles.panelHeader}>Parts Library</div>
+          <input 
+            style={styles.searchInput}
+            placeholder="Search parts..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <div style={styles.categoryTabs}>
+            {categories.map(cat => (
+              <button 
+                key={cat}
+                style={{ ...styles.categoryTab, ...(category === cat ? styles.categoryTabActive : {}) }}
+                onClick={() => setCategory(cat)}
+              >
+                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div style={styles.partsGrid}>
+            {filteredParts.map(part => (
+              <div 
+                key={part.id}
+                style={styles.partThumbnail}
+                onClick={() => selectedBoneId && assignPartToBone(selectedBoneId, part.id)}
+                title={`${part.name} - Click to assign to selected bone`}
+              >
+                <div style={{ ...styles.partPreview, backgroundColor: part.color, borderRadius: part.category === 'head' ? '50%' : 4 }} />
+                <span style={styles.partName}>{part.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function CharacterProperties() {
+      const { 
+        skeleton, partsLibrary, currentCharacter, setCurrentCharacter,
+        selectedBoneId, setSelectedBoneId, assignPartToBone, removePartFromBone,
+        generateRandomCharacter
+      } = useProject();
+      
+      const [expandedBones, setExpandedBones] = useState({ root: true, torso: true });
+      
+      const toggleExpanded = (boneId) => {
+        setExpandedBones(prev => ({ ...prev, [boneId]: !prev[boneId] }));
+      };
+      
+      const renderBoneTree = (boneId, depth = 0) => {
+        const bone = skeleton.bones[boneId];
+        if (!bone) return null;
+        
+        const hasChildren = bone.children.length > 0;
+        const isExpanded = expandedBones[boneId];
+        const isSelected = selectedBoneId === boneId;
+        const assignedPartId = currentCharacter.parts[boneId];
+        const assignedPart = partsLibrary.find(p => p.id === assignedPartId);
+        
+        return (
+          <div key={boneId}>
+            <div 
+              style={{ 
+                ...styles.boneTreeItem, 
+                paddingLeft: depth * 16 + 8,
+                backgroundColor: isSelected ? '#4A90E2' : 'transparent'
+              }}
+              onClick={() => setSelectedBoneId(boneId)}
+            >
+              {hasChildren && (
+                <span style={styles.expandIcon} onClick={(e) => { e.stopPropagation(); toggleExpanded(boneId); }}>
+                  {isExpanded ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
+                </span>
+              )}
+              <span style={styles.boneName}>{boneId}</span>
+              {assignedPart && <span style={styles.assignedPart}>({assignedPart.name})</span>}
+            </div>
+            {hasChildren && isExpanded && bone.children.map(childId => renderBoneTree(childId, depth + 1))}
+          </div>
+        );
+      };
+      
+      const compatibleParts = selectedBoneId ? partsLibrary.filter(p => {
+        const boneCategory = selectedBoneId.replace(/_left|_right/, '');
+        return p.category === boneCategory || p.category === 'weapon' || p.category === 'accessory';
+      }) : [];
+      
+      return (
+        <div style={styles.rightPanel}>
+          <div style={styles.panelHeader}>Character Properties</div>
+          <div style={styles.propertyGroup}>
+            <label style={styles.propertyLabel}>Character Name</label>
+            <input 
+              style={styles.propertyInput}
+              value={currentCharacter.name}
+              onChange={e => setCurrentCharacter(prev => ({ ...prev, name: e.target.value }))}
+            />
+          </div>
+          
+          <div style={styles.panelSection}>
+            <div style={styles.sectionTitle}>Bone Hierarchy</div>
+            <div style={styles.boneTree}>
+              {renderBoneTree('root')}
+            </div>
+          </div>
+          
+          {selectedBoneId && (
+            <div style={styles.panelSection}>
+              <div style={styles.sectionTitle}>Selected: {selectedBoneId}</div>
+              <div style={styles.propertyGroup}>
+                <label style={styles.propertyLabel}>Assigned Part</label>
+                <select 
+                  style={styles.propertySelect}
+                  value={currentCharacter.parts[selectedBoneId] || ''}
+                  onChange={e => e.target.value ? assignPartToBone(selectedBoneId, e.target.value) : removePartFromBone(selectedBoneId)}
+                >
+                  <option value="">None</option>
+                  {compatibleParts.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              {currentCharacter.parts[selectedBoneId] && (
+                <button style={styles.removeButton} onClick={() => removePartFromBone(selectedBoneId)}>
+                  <TrashIcon size={14} /> Remove Part
+                </button>
+              )}
+            </div>
+          )}
+          
+          <div style={styles.panelActions}>
+            <button style={styles.actionButton} onClick={generateRandomCharacter}>
+              <ShuffleIcon size={16} /> Generate Random
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================================
+    // ANIMATION EDITOR
+    // ============================================================
+    function AnimationEditor() {
+      return (
+        <div style={styles.editorLayout}>
+          <AnimationList />
+          <div style={styles.centerColumn}>
+            <CanvasViewport />
+            <AnimationTimeline />
+          </div>
+          <TransformEditor />
+        </div>
+      );
+    }
+
+    function AnimationList() {
+      const { animations, currentAnimation, setCurrentAnimation, createNewAnimation, deleteAnimation } = useProject();
+      const [newAnimName, setNewAnimName] = useState('');
+      
+      const handleCreate = () => {
+        if (newAnimName.trim()) {
+          createNewAnimation(newAnimName.trim());
+          setNewAnimName('');
+        }
+      };
+      
+      return (
+        <div style={styles.leftPanel}>
+          <div style={styles.panelHeader}>Animations</div>
+          <div style={styles.animationListItems}>
+            {animations.map(anim => (
+              <div 
+                key={anim.id}
+                style={{ 
+                  ...styles.animationItem, 
+                  backgroundColor: currentAnimation?.id === anim.id ? '#4A90E2' : 'transparent'
+                }}
+                onClick={() => setCurrentAnimation(anim)}
+              >
+                <span>{anim.name}</span>
+                <button 
+                  style={styles.deleteAnimButton}
+                  onClick={(e) => { e.stopPropagation(); deleteAnimation(anim.id); }}
+                >
+                  <TrashIcon size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div style={styles.newAnimForm}>
+            <input 
+              style={styles.newAnimInput}
+              placeholder="Animation name"
+              value={newAnimName}
+              onChange={e => setNewAnimName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreate()}
+            />
+            <button style={styles.newAnimButton} onClick={handleCreate}>
+              <PlusIcon size={16} />
+            </button>
+          </div>
+          {currentAnimation && (
+            <div style={styles.animProperties}>
+              <label style={styles.checkboxLabel}>
+                <input 
+                  type="checkbox" 
+                  checked={currentAnimation.loop}
+                  onChange={e => setCurrentAnimation(prev => ({ ...prev, loop: e.target.checked }))}
+                />
+                Loop Animation
+              </label>
+              <div style={styles.totalDuration}>
+                Total: {getTotalDuration(currentAnimation)}ms
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function AnimationTimeline() {
+      const { 
+        currentAnimation, currentFrame, goToFrame, updateFrameDuration,
+        isPlaying, setIsPlaying, playbackSpeed, setPlaybackSpeed, setCurrentTime
+      } = useProject();
+      
+      if (!currentAnimation) return null;
+      
+      return (
+        <div style={styles.timeline}>
+          <div style={styles.playbackControls}>
+            <button style={styles.playButton} onClick={() => goToFrame(Math.max(0, currentFrame - 1))}>
+              <SkipBackIcon size={16} />
+            </button>
+            <button style={styles.playButton} onClick={() => {
+              if (!isPlaying) setCurrentTime(0);
+              setIsPlaying(!isPlaying);
+            }}>
+              {isPlaying ? <PauseIcon size={20} /> : <PlayIcon size={20} />}
+            </button>
+            <button style={styles.playButton} onClick={() => goToFrame(Math.min(3, currentFrame + 1))}>
+              <SkipForwardIcon size={16} />
+            </button>
+            <div style={styles.speedControl}>
+              <span style={styles.speedLabel}>Speed: {playbackSpeed.toFixed(1)}x</span>
+              <input 
+                type="range" 
+                min="0.1" 
+                max="2" 
+                step="0.1"
+                value={playbackSpeed}
+                onChange={e => setPlaybackSpeed(parseFloat(e.target.value))}
+                style={styles.speedSlider}
+              />
+            </div>
+          </div>
+          <div style={styles.frameThumbnails}>
+            {currentAnimation.frames.map((frame, i) => (
+              <div 
+                key={i}
+                style={{ 
+                  ...styles.frameThumbnail, 
+                  borderColor: currentFrame === i ? '#4A90E2' : '#3A3A3A'
+                }}
+                onClick={() => goToFrame(i)}
+              >
+                <span style={styles.frameNumber}>Frame {i + 1}</span>
+                <input 
+                  type="number"
+                  style={styles.durationInput}
+                  value={frame.duration}
+                  onChange={e => updateFrameDuration(i, parseInt(e.target.value) || 100)}
+                  onClick={e => e.stopPropagation()}
+                />
+                <span style={styles.msLabel}>ms</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function TransformEditor() {
+      const { 
+        skeleton, currentAnimation, currentFrame, selectedBoneId, setSelectedBoneId,
+        updateBoneTransform, copyFrame, pasteFrame, mirrorFrame, resetBone, resetAllBones
+      } = useProject();
+      
+      const [copiedFrame, setCopiedFrame] = useState(null);
+      
+      const currentTransform = selectedBoneId && currentAnimation
+        ? currentAnimation.frames[currentFrame]?.bones?.[selectedBoneId] || skeleton.bones[selectedBoneId]?.localTransform
+        : null;
+      
+      const handleTransformChange = (property, axis, value) => {
+        if (!selectedBoneId || !currentTransform) return;
+        
+        const newTransform = { ...currentTransform };
+        if (axis) {
+          newTransform[property] = { ...newTransform[property], [axis]: parseFloat(value) || 0 };
+        } else {
+          newTransform[property] = parseFloat(value) || 0;
+        }
+        updateBoneTransform(selectedBoneId, newTransform);
+      };
+      
+      return (
+        <div style={styles.rightPanel}>
+          <div style={styles.panelHeader}>Transform Editor</div>
+          
+          <div style={styles.frameInfo}>
+            <span style={styles.frameLabel}>Frame {currentFrame + 1} of 4</span>
+          </div>
+          
+          <div style={styles.panelSection}>
+            <div style={styles.sectionTitle}>Select Bone</div>
+            <div style={styles.boneButtons}>
+              {Object.keys(skeleton.bones).filter(b => b !== 'root').map(boneId => (
+                <button 
+                  key={boneId}
+                  style={{ 
+                    ...styles.boneButton, 
+                    backgroundColor: selectedBoneId === boneId ? '#4A90E2' : '#333'
+                  }}
+                  onClick={() => setSelectedBoneId(boneId)}
+                >
+                  {boneId.replace('_', ' ')}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {selectedBoneId && currentTransform && (
+            <div style={styles.panelSection}>
+              <div style={styles.sectionTitle}>Transform: {selectedBoneId}</div>
+              
+              <div style={styles.transformGroup}>
+                <span style={styles.transformLabel}>Position</span>
+                <div style={styles.transformInputs}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.inputLabel}>X</label>
+                    <input 
+                      type="number"
+                      style={styles.numberInput}
+                      value={currentTransform.position.x}
+                      onChange={e => handleTransformChange('position', 'x', e.target.value)}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.inputLabel}>Y</label>
+                    <input 
+                      type="number"
+                      style={styles.numberInput}
+                      value={currentTransform.position.y}
+                      onChange={e => handleTransformChange('position', 'y', e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div style={styles.transformGroup}>
+                <span style={styles.transformLabel}>Rotation</span>
+                <div style={styles.transformInputs}>
+                  <input 
+                    type="range"
+                    min="-180"
+                    max="180"
+                    value={currentTransform.rotation}
+                    onChange={e => handleTransformChange('rotation', null, e.target.value)}
+                    style={styles.rotationSlider}
+                  />
+                  <input 
+                    type="number"
+                    style={styles.numberInput}
+                    value={Math.round(currentTransform.rotation)}
+                    onChange={e => handleTransformChange('rotation', null, e.target.value)}
+                  />
+                  <span style={styles.unitLabel}>°</span>
+                </div>
+              </div>
+              
+              <div style={styles.transformGroup}>
+                <span style={styles.transformLabel}>Scale</span>
+                <div style={styles.transformInputs}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.inputLabel}>X</label>
+                    <input 
+                      type="number"
+                      step="0.1"
+                      style={styles.numberInput}
+                      value={currentTransform.scale.x}
+                      onChange={e => handleTransformChange('scale', 'x', e.target.value)}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.inputLabel}>Y</label>
+                    <input 
+                      type="number"
+                      step="0.1"
+                      style={styles.numberInput}
+                      value={currentTransform.scale.y}
+                      onChange={e => handleTransformChange('scale', 'y', e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <button style={styles.resetButton} onClick={() => resetBone(selectedBoneId)}>
+                <RotateIcon size={14} /> Reset Bone
+              </button>
+            </div>
+          )}
+          
+          <div style={styles.panelSection}>
+            <div style={styles.sectionTitle}>Frame Operations</div>
+            <div style={styles.frameOperations}>
+              <button style={styles.opButton} onClick={() => setCopiedFrame(copyFrame())}>
+                <CopyIcon size={14} /> Copy
+              </button>
+              <button style={styles.opButton} onClick={() => pasteFrame(copiedFrame)} disabled={!copiedFrame}>
+                <ClipboardIcon size={14} /> Paste
+              </button>
+              <button style={styles.opButton} onClick={mirrorFrame}>
+                <FlipIcon size={14} /> Mirror
+              </button>
+              <button style={styles.opButton} onClick={resetAllBones}>
+                <RotateIcon size={14} /> Reset All
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================================
+    // CANVAS VIEWPORT
+    // ============================================================
+    function CanvasViewport() {
+      const canvasRef = useRef(null);
+      const containerRef = useRef(null);
+      const { 
+        skeleton, partsLibrary, currentCharacter, currentAnimation, currentFrame, currentTime,
+        selectedBoneId, setSelectedBoneId, zoom, setZoom, pan, setPan, showGrid, setShowGrid,
+        showBones, setShowBones, isPlaying, mode
+      } = useProject();
+      
+      const [isDragging, setIsDragging] = useState(false);
+      const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+      
+      const worldTransforms = useMemo(() => {
+        let frameTransforms = {};
+        
+        if (mode === 'animator' && currentAnimation) {
+          if (isPlaying) {
+            const frameData = getCurrentFrameData(currentAnimation, currentTime);
+            if (frameData.currentFrame && frameData.nextFrame) {
+              frameTransforms = interpolateFrames(
+                frameData.currentFrame,
+                frameData.nextFrame,
+                frameData.progress,
+                skeleton
+              );
+            }
+          } else {
+            frameTransforms = currentAnimation.frames[currentFrame]?.bones || {};
+          }
+        }
+        
+        return calculateAllWorldTransforms(skeleton, frameTransforms);
+      }, [skeleton, currentAnimation, currentFrame, currentTime, isPlaying, mode]);
+      
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        const container = containerRef.current;
+        if (!canvas || !container) return;
+        
+        const ctx = canvas.getContext('2d');
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const centerX = width / 2 + pan.x;
+        const centerY = height / 2 + pan.y;
+        
+        ctx.fillStyle = '#2D2D2D';
+        ctx.fillRect(0, 0, width, height);
+        
+        if (showGrid) {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+          ctx.lineWidth = 1;
+          
+          const gridSize = 32 * zoom;
+          const startX = (centerX % gridSize) - gridSize;
+          const startY = (centerY % gridSize) - gridSize;
+          
+          for (let x = startX; x < width + gridSize; x += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, height);
+            ctx.stroke();
+          }
+          
+          for (let y = startY; y < height + gridSize; y += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(width, y);
+            ctx.stroke();
+          }
+          
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+          const majorGridSize = 128 * zoom;
+          const majorStartX = (centerX % majorGridSize) - majorGridSize;
+          const majorStartY = (centerY % majorGridSize) - majorGridSize;
+          
+          for (let x = majorStartX; x < width + majorGridSize; x += majorGridSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, height);
+            ctx.stroke();
+          }
+          
+          for (let y = majorStartY; y < height + majorGridSize; y += majorGridSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(width, y);
+            ctx.stroke();
+          }
+        }
+        
+        const renderList = [];
+        
+        for (const [boneId, partId] of Object.entries(currentCharacter.parts)) {
+          const part = partsLibrary.find(p => p.id === partId);
+          if (!part) continue;
+          
+          const bone = skeleton.bones[boneId];
+          const worldTransform = worldTransforms[boneId];
+          if (!worldTransform) continue;
+          
+          renderList.push({
+            part,
+            boneId,
+            position: {
+              x: worldTransform.position.x + part.offset.x,
+              y: worldTransform.position.y + part.offset.y
+            },
+            rotation: worldTransform.rotation,
+            scale: worldTransform.scale,
+            zIndex: bone.zIndex + part.zIndexModifier
+          });
+        }
+        
+        renderList.sort((a, b) => a.zIndex - b.zIndex);
+        
+        for (const item of renderList) {
+          ctx.save();
+          
+          const screenX = centerX + item.position.x * zoom;
+          const screenY = centerY + item.position.y * zoom;
+          
+          ctx.translate(screenX, screenY);
+          ctx.rotate(degToRad(item.rotation));
+          ctx.scale(item.scale.x, item.scale.y);
+          
+          const w = item.part.width * zoom;
+          const h = item.part.height * zoom;
+          
+          ctx.fillStyle = item.part.color;
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetY = 2;
+          
+          if (item.part.category === 'head') {
+            ctx.beginPath();
+            ctx.arc(0, 0, w / 2, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (item.part.category === 'weapon') {
+            ctx.fillRect(-w / 2, -h / 2, w, h);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(-w / 4, -h / 2, w / 2, h / 6);
+          } else {
+            ctx.beginPath();
+            ctx.roundRect(-w / 2, -h / 2, w, h, 4);
+            ctx.fill();
+          }
+          
+          ctx.restore();
+        }
+        
+        if (showBones) {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+          ctx.lineWidth = 2;
+          
+          for (const bone of Object.values(skeleton.bones)) {
+            if (bone.parent === null) continue;
+            
+            const parentTransform = worldTransforms[bone.parent];
+            const boneTransform = worldTransforms[bone.id];
+            if (!parentTransform || !boneTransform) continue;
+            
+            const x1 = centerX + parentTransform.position.x * zoom;
+            const y1 = centerY + parentTransform.position.y * zoom;
+            const x2 = centerX + boneTransform.position.x * zoom;
+            const y2 = centerY + boneTransform.position.y * zoom;
+            
+            ctx.beginPath();
+            ctx.setLineDash([4, 4]);
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+          
+          for (const [boneId, worldTransform] of Object.entries(worldTransforms)) {
+            const x = centerX + worldTransform.position.x * zoom;
+            const y = centerY + worldTransform.position.y * zoom;
+            
+            ctx.beginPath();
+            ctx.arc(x, y, 8, 0, Math.PI * 2);
+            
+            if (boneId === selectedBoneId) {
+              ctx.fillStyle = '#FFD700';
+              ctx.strokeStyle = '#FFA500';
+              ctx.lineWidth = 3;
+            } else {
+              const bone = skeleton.bones[boneId];
+              const isChildOfSelected = selectedBoneId && bone?.parent === selectedBoneId;
+              ctx.fillStyle = isChildOfSelected ? '#4AE24A' : '#FFFFFF';
+              ctx.strokeStyle = '#888888';
+              ctx.lineWidth = 2;
+            }
+            
+            ctx.fill();
+            ctx.stroke();
+          }
+        }
+        
+      }, [skeleton, partsLibrary, currentCharacter, worldTransforms, zoom, pan, showGrid, showBones, selectedBoneId]);
+      
+      const handleMouseDown = (e) => {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        const centerX = rect.width / 2 + pan.x;
+        const centerY = rect.height / 2 + pan.y;
+        
+        for (const [boneId, worldTransform] of Object.entries(worldTransforms)) {
+          const boneX = centerX + worldTransform.position.x * zoom;
+          const boneY = centerY + worldTransform.position.y * zoom;
+          
+          const dist = Math.sqrt((x - boneX) ** 2 + (y - boneY) ** 2);
+          if (dist < 12) {
+            setSelectedBoneId(boneId);
+            return;
+          }
+        }
+        
+        setIsDragging(true);
+        setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      };
+      
+      const handleMouseMove = (e) => {
+        if (!isDragging) return;
+        setPan({
+          x: e.clientX - dragStart.x,
+          y: e.clientY - dragStart.y
+        });
+      };
+      
+      const handleMouseUp = () => {
+        setIsDragging(false);
+      };
+      
+      const handleWheel = (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        setZoom(prev => Math.max(0.5, Math.min(5, prev * delta)));
+      };
+      
+      return (
+        <div style={styles.canvasContainer} ref={containerRef}>
+          <canvas
+            ref={canvasRef}
+            style={styles.canvas}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onWheel={handleWheel}
+          />
+          <div style={styles.canvasControls}>
+            <button 
+              style={{ ...styles.canvasButton, backgroundColor: showGrid ? '#4A90E2' : '#333' }} 
+              onClick={() => setShowGrid(!showGrid)}
+              title="Toggle Grid"
+            >
+              <GridIcon size={16} />
+            </button>
+            <button 
+              style={{ ...styles.canvasButton, backgroundColor: showBones ? '#4A90E2' : '#333' }} 
+              onClick={() => setShowBones(!showBones)}
+              title="Toggle Bones"
+            >
+              {showBones ? <EyeIcon size={16} /> : <EyeOffIcon size={16} />}
+            </button>
+            <span style={styles.zoomLabel}>{Math.round(zoom * 100)}%</span>
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================================
+    // DIALOGS
+    // ============================================================
+    function ExportDialog({ onClose }) {
+      const { exportCharacter, exportAnimation, currentCharacter, currentAnimation } = useProject();
+      const [exportType, setExportType] = useState('character');
+      const [exportedData, setExportedData] = useState('');
+      
+      useEffect(() => {
+        setExportedData(exportType === 'character' ? exportCharacter() : exportAnimation());
+      }, [exportType, exportCharacter, exportAnimation]);
+      
+      const handleCopy = () => {
+        navigator.clipboard.writeText(exportedData);
+        alert('Copied to clipboard!');
+      };
+      
+      const handleDownload = () => {
+        const name = exportType === 'character' ? currentCharacter?.name : currentAnimation?.name;
+        const filename = `${exportType}_${name}_${Date.now()}.json`;
+        const blob = new Blob([exportedData], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+      
+      return (
+        <div style={styles.dialogOverlay} onClick={onClose}>
+          <div style={styles.dialog} onClick={e => e.stopPropagation()}>
+            <div style={styles.dialogHeader}>
+              <span>Export</span>
+              <button style={styles.closeButton} onClick={onClose}><XIcon size={20} /></button>
+            </div>
+            <div style={styles.dialogContent}>
+              <div style={styles.exportOptions}>
+                <label style={styles.radioLabel}>
+                  <input type="radio" value="character" checked={exportType === 'character'} onChange={() => setExportType('character')} />
+                  Character
+                </label>
+                <label style={styles.radioLabel}>
+                  <input type="radio" value="animation" checked={exportType === 'animation'} onChange={() => setExportType('animation')} />
+                  Animation
+                </label>
+              </div>
+              <textarea style={styles.exportTextarea} value={exportedData} readOnly />
+              <div style={styles.dialogButtons}>
+                <button style={styles.actionButton} onClick={handleCopy}>Copy to Clipboard</button>
+                <button style={styles.actionButton} onClick={handleDownload}>Download File</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ImportDialog({ onClose }) {
+      const { importData } = useProject();
+      const [importText, setImportText] = useState('');
+      const [message, setMessage] = useState(null);
+      
+      const handleImport = () => {
+        const result = importData(importText);
+        setMessage(result);
+        if (result.success) {
+          setTimeout(onClose, 1500);
+        }
+      };
+      
+      const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            setImportText(event.target.result);
+          };
+          reader.readAsText(file);
+        }
+      };
+      
+      return (
+        <div style={styles.dialogOverlay} onClick={onClose}>
+          <div style={styles.dialog} onClick={e => e.stopPropagation()}>
+            <div style={styles.dialogHeader}>
+              <span>Import</span>
+              <button style={styles.closeButton} onClick={onClose}><XIcon size={20} /></button>
+            </div>
+            <div style={styles.dialogContent}>
+              <div style={styles.importOptions}>
+                <label style={styles.fileLabel}>
+                  <UploadIcon size={18} />
+                  Choose File
+                  <input type="file" accept=".json" style={styles.fileInput} onChange={handleFileUpload} />
+                </label>
+              </div>
+              <textarea 
+                style={styles.exportTextarea} 
+                value={importText} 
+                onChange={e => setImportText(e.target.value)}
+                placeholder="Paste JSON here or upload a file..."
+              />
+              {message && (
+                <div style={{ 
+                  ...styles.message, 
+                  backgroundColor: message.success ? '#065F46' : '#7F1D1D',
+                  color: message.success ? '#6EE7B7' : '#FCA5A5'
+                }}>
+                  {message.message}
+                </div>
+              )}
+              <div style={styles.dialogButtons}>
+                <button style={styles.actionButton} onClick={handleImport}>Import</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================================
+    // STYLES
+    // ============================================================
+    const styles = {
+      app: {
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        backgroundColor: '#1E1E1E',
+        color: '#FFFFFF',
+        fontFamily: "'JetBrains Mono', 'Consolas', monospace"
+      },
+      toolbar: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '8px 16px',
+        backgroundColor: '#252525',
+        borderBottom: '1px solid #3A3A3A'
+      },
+      toolbarLeft: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 24
+      },
+      logo: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#4A90E2'
+      },
+      modeToggle: {
+        display: 'flex',
+        gap: 4,
+        backgroundColor: '#1E1E1E',
+        padding: 4,
+        borderRadius: 6
+      },
+      modeButton: {
+        padding: '8px 16px',
+        border: 'none',
+        borderRadius: 4,
+        backgroundColor: 'transparent',
+        color: '#AAAAAA',
+        cursor: 'pointer',
+        fontSize: 13,
+        fontFamily: 'inherit',
+        transition: 'all 0.2s'
+      },
+      modeButtonActive: {
+        backgroundColor: '#4A90E2',
+        color: '#FFFFFF'
+      },
+      toolbarRight: {
+        display: 'flex',
+        gap: 8
+      },
+      toolbarButton: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 36,
+        height: 36,
+        border: 'none',
+        borderRadius: 6,
+        backgroundColor: '#333',
+        color: '#FFFFFF',
+        cursor: 'pointer'
+      },
+      mainContent: {
+        flex: 1,
+        overflow: 'hidden'
+      },
+      builderLayout: {
+        display: 'flex',
+        height: '100%'
+      },
+      editorLayout: {
+        display: 'flex',
+        height: '100%'
+      },
+      centerColumn: {
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column'
+      },
+      leftPanel: {
+        width: 280,
+        backgroundColor: '#1E1E1E',
+        borderRight: '1px solid #3A3A3A',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      },
+      rightPanel: {
+        width: 300,
+        backgroundColor: '#1E1E1E',
+        borderLeft: '1px solid #3A3A3A',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'auto'
+      },
+      panelHeader: {
+        padding: '12px 16px',
+        fontSize: 14,
+        fontWeight: 600,
+        borderBottom: '1px solid #3A3A3A',
+        backgroundColor: '#252525'
+      },
+      searchInput: {
+        margin: '12px',
+        padding: '8px 12px',
+        border: '1px solid #3A3A3A',
+        borderRadius: 4,
+        backgroundColor: '#2D2D2D',
+        color: '#FFFFFF',
+        fontSize: 13,
+        fontFamily: 'inherit'
+      },
+      categoryTabs: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 4,
+        padding: '0 12px 12px'
+      },
+      categoryTab: {
+        padding: '4px 8px',
+        border: 'none',
+        borderRadius: 4,
+        backgroundColor: '#333',
+        color: '#AAAAAA',
+        cursor: 'pointer',
+        fontSize: 11,
+        fontFamily: 'inherit'
+      },
+      categoryTabActive: {
+        backgroundColor: '#4A90E2',
+        color: '#FFFFFF'
+      },
+      partsGrid: {
+        flex: 1,
+        overflow: 'auto',
+        padding: 12,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: 8,
+        alignContent: 'start'
+      },
+      partThumbnail: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 4,
+        padding: 8,
+        backgroundColor: '#2D2D2D',
+        borderRadius: 6,
+        cursor: 'pointer',
+        transition: 'all 0.2s'
+      },
+      partPreview: {
+        width: 48,
+        height: 48
+      },
+      partName: {
+        fontSize: 10,
+        color: '#AAAAAA',
+        textAlign: 'center'
+      },
+      propertyGroup: {
+        padding: '12px 16px'
+      },
+      propertyLabel: {
+        display: 'block',
+        fontSize: 11,
+        color: '#AAAAAA',
+        marginBottom: 6,
+        textTransform: 'uppercase'
+      },
+      propertyInput: {
+        width: '100%',
+        padding: '8px 12px',
+        border: '1px solid #3A3A3A',
+        borderRadius: 4,
+        backgroundColor: '#2D2D2D',
+        color: '#FFFFFF',
+        fontSize: 13,
+        fontFamily: 'inherit',
+        boxSizing: 'border-box'
+      },
+      propertySelect: {
+        width: '100%',
+        padding: '8px 12px',
+        border: '1px solid #3A3A3A',
+        borderRadius: 4,
+        backgroundColor: '#2D2D2D',
+        color: '#FFFFFF',
+        fontSize: 13,
+        fontFamily: 'inherit',
+        boxSizing: 'border-box'
+      },
+      panelSection: {
+        padding: '12px 16px',
+        borderTop: '1px solid #3A3A3A'
+      },
+      sectionTitle: {
+        fontSize: 12,
+        fontWeight: 600,
+        marginBottom: 12,
+        color: '#AAAAAA'
+      },
+      boneTree: {
+        backgroundColor: '#252525',
+        borderRadius: 4,
+        maxHeight: 200,
+        overflow: 'auto'
+      },
+      boneTreeItem: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '6px 8px',
+        cursor: 'pointer',
+        fontSize: 12,
+        borderRadius: 2
+      },
+      expandIcon: {
+        width: 14,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      },
+      boneName: {
+        color: '#FFFFFF'
+      },
+      assignedPart: {
+        color: '#4A90E2',
+        fontSize: 10,
+        marginLeft: 4
+      },
+      removeButton: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '8px 12px',
+        border: 'none',
+        borderRadius: 4,
+        backgroundColor: '#7F1D1D',
+        color: '#FCA5A5',
+        cursor: 'pointer',
+        fontSize: 12,
+        fontFamily: 'inherit',
+        marginTop: 8
+      },
+      panelActions: {
+        padding: 16,
+        marginTop: 'auto'
+      },
+      actionButton: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        width: '100%',
+        padding: '10px 16px',
+        border: 'none',
+        borderRadius: 6,
+        backgroundColor: '#4A90E2',
+        color: '#FFFFFF',
+        cursor: 'pointer',
+        fontSize: 13,
+        fontFamily: 'inherit',
+        fontWeight: 500
+      },
+      canvasContainer: {
+        flex: 1,
+        position: 'relative',
+        backgroundColor: '#2D2D2D',
+        overflow: 'hidden'
+      },
+      canvas: {
+        display: 'block',
+        width: '100%',
+        height: '100%'
+      },
+      canvasControls: {
+        position: 'absolute',
+        bottom: 12,
+        right: 12,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: 'rgba(30, 30, 30, 0.9)',
+        padding: '6px 10px',
+        borderRadius: 6
+      },
+      canvasButton: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 28,
+        height: 28,
+        border: 'none',
+        borderRadius: 4,
+        color: '#FFFFFF',
+        cursor: 'pointer'
+      },
+      zoomLabel: {
+        fontSize: 11,
+        color: '#AAAAAA',
+        minWidth: 40,
+        textAlign: 'center'
+      },
+      animationListItems: {
+        flex: 1,
+        overflow: 'auto',
+        padding: 8
+      },
+      animationItem: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '10px 12px',
+        borderRadius: 4,
+        cursor: 'pointer',
+        marginBottom: 4,
+        fontSize: 13
+      },
+      deleteAnimButton: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 24,
+        height: 24,
+        border: 'none',
+        borderRadius: 4,
+        backgroundColor: 'transparent',
+        color: '#AAAAAA',
+        cursor: 'pointer'
+      },
+      newAnimForm: {
+        display: 'flex',
+        gap: 8,
+        padding: '12px'
+      },
+      newAnimInput: {
+        flex: 1,
+        padding: '8px 12px',
+        border: '1px solid #3A3A3A',
+        borderRadius: 4,
+        backgroundColor: '#2D2D2D',
+        color: '#FFFFFF',
+        fontSize: 13,
+        fontFamily: 'inherit'
+      },
+      newAnimButton: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 36,
+        height: 36,
+        border: 'none',
+        borderRadius: 4,
+        backgroundColor: '#4A90E2',
+        color: '#FFFFFF',
+        cursor: 'pointer'
+      },
+      animProperties: {
+        padding: '12px',
+        borderTop: '1px solid #3A3A3A'
+      },
+      checkboxLabel: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        fontSize: 13,
+        cursor: 'pointer'
+      },
+      totalDuration: {
+        marginTop: 8,
+        fontSize: 12,
+        color: '#AAAAAA'
+      },
+      timeline: {
+        backgroundColor: '#252525',
+        borderTop: '1px solid #3A3A3A',
+        padding: 16
+      },
+      playbackControls: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 16
+      },
+      playButton: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 36,
+        height: 36,
+        border: 'none',
+        borderRadius: 6,
+        backgroundColor: '#333',
+        color: '#FFFFFF',
+        cursor: 'pointer'
+      },
+      speedControl: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        marginLeft: 16
+      },
+      speedLabel: {
+        fontSize: 12,
+        color: '#AAAAAA',
+        minWidth: 70
+      },
+      speedSlider: {
+        width: 100
+      },
+      frameThumbnails: {
+        display: 'flex',
+        gap: 8
+      },
+      frameThumbnail: {
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 4,
+        padding: 12,
+        backgroundColor: '#1E1E1E',
+        borderRadius: 6,
+        border: '2px solid #3A3A3A',
+        cursor: 'pointer',
+        transition: 'all 0.2s'
+      },
+      frameNumber: {
+        fontSize: 14,
+        fontWeight: 600
+      },
+      durationInput: {
+        width: 60,
+        padding: '4px 8px',
+        backgroundColor: '#333',
+        border: '1px solid #3A3A3A',
+        borderRadius: 4,
+        color: '#FFFFFF',
+        fontSize: 12,
+        textAlign: 'center',
+        fontFamily: 'inherit'
+      },
+      msLabel: {
+        fontSize: 10,
+        color: '#666'
+      },
+      frameInfo: {
+        backgroundColor: '#333',
+        padding: '8px 12px',
+        borderRadius: 4,
+        margin: '0 16px'
+      },
+      frameLabel: {
+        fontSize: 12,
+        color: '#AAAAAA'
+      },
+      boneButtons: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 4
+      },
+      boneButton: {
+        padding: '6px 10px',
+        backgroundColor: '#333',
+        border: '1px solid #3A3A3A',
+        borderRadius: 4,
+        color: '#FFFFFF',
+        fontSize: 10,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        textTransform: 'capitalize'
+      },
+      transformGroup: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        marginBottom: 12
+      },
+      transformLabel: {
+        fontSize: 11,
+        color: '#AAAAAA',
+        textTransform: 'uppercase'
+      },
+      transformInputs: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8
+      },
+      inputGroup: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4
+      },
+      inputLabel: {
+        fontSize: 11,
+        color: '#666',
+        width: 12
+      },
+      numberInput: {
+        width: 60,
+        padding: '6px 8px',
+        backgroundColor: '#333',
+        border: '1px solid #3A3A3A',
+        borderRadius: 4,
+        color: '#FFFFFF',
+        fontSize: 12,
+        fontFamily: 'inherit',
+        textAlign: 'center'
+      },
+      rotationSlider: {
+        flex: 1
+      },
+      unitLabel: {
+        fontSize: 11,
+        color: '#666'
+      },
+      resetButton: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '6px 12px',
+        border: 'none',
+        borderRadius: 4,
+        backgroundColor: '#333',
+        color: '#AAAAAA',
+        cursor: 'pointer',
+        fontSize: 11,
+        fontFamily: 'inherit'
+      },
+      frameOperations: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: 8
+      },
+      opButton: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        padding: '8px 12px',
+        border: 'none',
+        borderRadius: 4,
+        backgroundColor: '#333',
+        color: '#FFFFFF',
+        cursor: 'pointer',
+        fontSize: 11,
+        fontFamily: 'inherit'
+      },
+      dialogOverlay: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000
+      },
+      dialog: {
+        backgroundColor: '#252525',
+        borderRadius: 8,
+        width: 500,
+        maxWidth: '90%',
+        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)'
+      },
+      dialogHeader: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '16px 20px',
+        borderBottom: '1px solid #3A3A3A',
+        fontSize: 16,
+        fontWeight: 600
+      },
+      closeButton: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 32,
+        height: 32,
+        backgroundColor: 'transparent',
+        border: 'none',
+        color: '#AAAAAA',
+        cursor: 'pointer',
+        borderRadius: 4
+      },
+      dialogContent: {
+        padding: 20,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 16
+      },
+      exportOptions: {
+        display: 'flex',
+        gap: 20
+      },
+      radioLabel: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        fontSize: 14,
+        cursor: 'pointer'
+      },
+      exportTextarea: {
+        width: '100%',
+        height: 200,
+        padding: 12,
+        backgroundColor: '#1E1E1E',
+        border: '1px solid #3A3A3A',
+        borderRadius: 4,
+        color: '#FFFFFF',
+        fontSize: 12,
+        fontFamily: 'monospace',
+        resize: 'none',
+        boxSizing: 'border-box'
+      },
+      dialogButtons: {
+        display: 'flex',
+        gap: 12,
+        justifyContent: 'flex-end'
+      },
+      importOptions: {
+        display: 'flex',
+        justifyContent: 'center'
+      },
+      fileLabel: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '12px 20px',
+        backgroundColor: '#333',
+        borderRadius: 4,
+        cursor: 'pointer',
+        fontSize: 14
+      },
+      fileInput: {
+        display: 'none'
+      },
+      message: {
+        padding: 12,
+        borderRadius: 4,
+        fontSize: 13,
+        textAlign: 'center'
+      }
+    };
+
+    // ============================================================
+    // RENDER
+    // ============================================================
+    ReactDOM.render(<PuppetJSX />, document.getElementById('root'));
+  </script>
+</body>
+</html>
